@@ -6,7 +6,8 @@
 - [![TopAME | Bullish - Cheerful](https://img.shields.io/badge/TopAME%20|%20Bullish-Cheerful-blue?logo=telegram&style=flat)](https://t.me/xTopAME)
 
 # Hướng Dẫn Cài Đặt BubuVerse Register & Ref Bot
-- **Chức năng:** Tự động tạo ví **Solana** và sử dụng **Puppeteer** để vượt qua **checkpoint** của **Vercel**, đồng thời hoàn tất quá trình đăng ký theo địa chỉ giới thiệu được chỉ định.
+- **Chức năng:** Tự động tạo ví **Solana** và sử dụng **Puppeteer** để vượt qua **checkpoint** của **Vercel**, đồng thời hoàn tất quá trình đăng ký theo địa chỉ giới thiệu được chỉ định
+- **Cập nhật thêm:** Tự động hóa mở **Box** thông qua `OpenBox.js` và **Stake** các **NFT** nhận được thông qua `StakeNFT.js`
 
 ---
 
@@ -55,6 +56,7 @@
 2. Nhập **Ví Solana để Ref** và **Số lượng** mong muốn
 3. Tool sẽ bắt đầu xử lý tự động
 4. Thông tin sẽ được lưu vào wallet_sol.json
+5. `OpenBox.js` và `StakeNFT.js` vừa được cập nhât. Đọc thêm phía trên!
 
 ---
 
