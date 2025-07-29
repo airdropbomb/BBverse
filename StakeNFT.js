@@ -13,6 +13,17 @@ const proxies = fs.readFileSync('proxy.txt', 'utf-8').split('\n').filter(Boolean
 const userAgents = fs.readFileSync('ua.txt', 'utf-8').split('\n').filter(Boolean);
 
 const walletFile = 'wallet_sol.json';
+const openFile = 'open.json';
+let openData = {};
+
+if (fs.existsSync(openFile)) {
+  try {
+    openData = JSON.parse(fs.readFileSync(openFile, 'utf-8'));
+  } catch (err) {
+    openData = {};
+    console.log(`${colors.yellow('[!] Lỗi đọc open.json, tạo mới.')}`);
+  }
+}
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 
@@ -77,7 +88,7 @@ async function getBrowserSession(proxyConfig, userAgent) {
 
         await page.setUserAgent(userAgent);
 
-        const targetUrl = `https://bubuverse.fun/tasks`;
+        const targetUrl = `https://bubuverse.fun/space`;
         await page.goto(targetUrl, {
             waitUntil: 'networkidle2',
             timeout: 60000
@@ -117,92 +128,10 @@ async function getBrowserSession(proxyConfig, userAgent) {
     }
 }
 
-async function checkDailyStatus(page, walletAddress) {
+async function stakeNFTs(page, walletAddress, privateKey) {
     try {
         const timestamp = Date.now();
-        const apiUrl = `https://bubuverse.fun/api/users/${walletAddress}/check-in-status?_t=${timestamp}`;
-        
-        const response = await page.evaluate(async (url) => {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'accept': '*/*'
-                },
-                mode: 'cors',
-                credentials: 'include'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            return await response.json();
-        }, apiUrl);
-
-        return response;
-    } catch (error) {
-        throw new Error(`Failed to check daily status: ${error.message}`);
-    }
-}
-
-async function performDailyCheckIn(page, walletAddress) {
-    try {
-        const apiUrl = `https://bubuverse.fun/api/users/${walletAddress}/check-in`;
-        
-        const response = await page.evaluate(async (url) => {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'accept': '*/*'
-                },
-                mode: 'cors',
-                credentials: 'include'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            return await response.json();
-        }, apiUrl);
-
-        return response;
-    } catch (error) {
-        throw new Error(`Failed to perform daily check-in: ${error.message}`);
-    }
-}
-
-async function checkNFTStats(page, walletAddress) {
-    try {
-        const apiUrl = `https://bubuverse.fun/api/users/${walletAddress}/nfts/stats`;
-        
-        const response = await page.evaluate(async (url) => {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'accept': '*/*'
-                },
-                mode: 'cors',
-                credentials: 'include'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            return await response.json();
-        }, apiUrl);
-
-        return response;
-    } catch (error) {
-        throw new Error(`Failed to check NFT stats: ${error.message}`);
-    }
-}
-
-async function collectEnergy(page, walletAddress, privateKey) {
-    try {
-        const timestamp = Date.now();
-        const message = `Collect energy at ${timestamp}`;
+        const message = `Stake NFTs at ${timestamp}`;
         const signature = signMessage(message, privateKey);
 
         const body = {
@@ -210,7 +139,7 @@ async function collectEnergy(page, walletAddress, privateKey) {
             message: message
         };
 
-        const apiUrl = `https://bubuverse.fun/api/users/${walletAddress}/nfts/collect-energy`;
+        const apiUrl = `https://bubuverse.fun/api/users/${walletAddress}/nfts/stake`;
         
         const response = await page.evaluate(async (url, requestBody) => {
             const response = await fetch(url, {
@@ -233,103 +162,121 @@ async function collectEnergy(page, walletAddress, privateKey) {
 
         return response;
     } catch (error) {
-        throw new Error(`Failed to collect energy: ${error.message}`);
+        throw new Error(`Failed to stake NFTs: ${error.message}`);
     }
 }
 
-function isAlreadyCheckedInToday(wallet) {
-    if (!wallet.DailyCheckin) return false;
-    
-    const today = new Date().toDateString();
-    const lastCheckin = new Date(wallet.DailyCheckin).toDateString();
-    
-    return today === lastCheckin;
+function hasNFTs(walletAddress) {
+  return openData[walletAddress] && openData[walletAddress].length > 0;
 }
 
-function markAsCheckedIn(wallet) {
-    wallet.DailyCheckin = new Date().toISOString();
+function isAlreadyStaked(walletAddress) {
+  return openData[walletAddress] && openData[walletAddress].some(nft => 
+    typeof nft === 'object' && nft.staked === true
+  );
+}
+
+function markAsStaked(walletAddress, stakeResult) {
+  if (!openData[walletAddress]) {
+    openData[walletAddress] = [];
+  }
+  
+  // Convert string NFTs to objects and mark as staked
+  openData[walletAddress] = openData[walletAddress].map(nft => {
+    if (typeof nft === 'string') {
+      return {
+        templateId: nft,
+        staked: true,
+        stakedAt: new Date().toISOString(),
+        stakeResult: stakeResult
+      };
+    } else if (typeof nft === 'object' && !nft.staked) {
+      return {
+        ...nft,
+        staked: true,
+        stakedAt: new Date().toISOString(),
+        stakeResult: stakeResult
+      };
+    }
+    return nft;
+  });
 }
 
 async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
   const { privateKey, publicKey } = wallet;
   const walletAddress = publicKey;
 
-  console.log(`\n[${walletIndex + 1}/${totalWallets}] ${walletAddress.substring(0, 8)}...`);
+  console.log(`\n[${walletIndex + 1}/${totalWallets}] ${colors.cyan(walletAddress.substring(0, 8))}...`);
 
   let proxyConfig = null;
   try {
     proxyConfig = parseProxy(proxyString);
-    console.log(`Proxy: ${proxyConfig.host}:${proxyConfig.port}`);
+    console.log(`Proxy: ${colors.blue(proxyConfig.host + ':' + proxyConfig.port)}`);
   } catch (error) {
-    console.log(`Lỗi proxy: ${error.message}`);
+    console.log(`${colors.red('Lỗi proxy:')} ${error.message}`);
     return false;
   }
 
   let sessionData = null;
   try {
-    console.log(`Đang tạo session...`);
+    console.log(`${colors.yellow('Đang lấy cookies...')}`);
     sessionData = await getBrowserSession(proxyConfig, wallet.userAgent);
-    console.log(`Session OK`);
+    console.log(`${colors.green('Cookies OK')}`);
 
   } catch (error) {
-    console.log(`Lỗi session: ${error.message}`);
+    console.log(`${colors.red('Lỗi Cookies:')} ${error.message}`);
     return false;
   }
 
   try {
-    if (!isAlreadyCheckedInToday(wallet)) {
-      console.log(`Đang kiểm tra daily check-in...`);
-      const checkInStatus = await checkDailyStatus(sessionData.page, walletAddress);
-      
-      if (checkInStatus.can_check_in) {
-        console.log(`Đang thực hiện daily check-in...`);
-        const checkInResult = await performDailyCheckIn(sessionData.page, walletAddress);
-        
-        if (checkInResult.success) {
-          console.log(`✓ Check-in thành công! Nhận ${checkInResult.energy_reward} energy (Day ${checkInResult.check_in_count})`);
-          markAsCheckedIn(wallet);
-        } else {
-          console.log(`✗ Check-in thất bại`);
-        }
-      } else {
-        console.log(`Đã check-in hôm nay rồi`);
-        markAsCheckedIn(wallet);
-      }
-    } else {
-      console.log(`Bỏ qua check-in - đã thực hiện hôm nay`);
+    // Check if wallet has NFTs
+    if (!hasNFTs(walletAddress)) {
+      console.log(`${colors.gray('Không có NFT để stake')}`);
+      await sessionData.browser.close();
+      return true;
     }
 
-    console.log(`Đang kiểm tra energy...`);
-    const nftStats = await checkNFTStats(sessionData.page, walletAddress);
-    
-    if (nftStats.pending_energy && nftStats.pending_energy > 1000) {
-      console.log(`Có ${nftStats.pending_energy.toFixed(2)} energy để collect`);
-      
-      const collectResult = await collectEnergy(sessionData.page, walletAddress, privateKey);
-      
-      if (collectResult.success) {
-        const { total_nfts, success_count, failed_count, total_energy } = collectResult.data;
-        console.log(`✓ Collect thành công: ${total_energy.toFixed(2)} energy từ ${success_count}/${total_nfts} NFTs`);
-        
-        if (failed_count > 0) {
-          console.log(`⚠ Có ${failed_count} NFTs lỗi`);
-          if (collectResult.data.error_messages && collectResult.data.error_messages.length > 0) {
-            collectResult.data.error_messages.forEach(msg => {
-              console.log(`  → ${msg}`);
-            });
-          }
+    // Check if already staked
+    if (isAlreadyStaked(walletAddress)) {
+      console.log(`${colors.gray('NFTs đã được stake rồi')}`);
+      await sessionData.browser.close();
+      return true;
+    }
+
+    console.log(`${colors.yellow('Đang stake NFTs...')}`);
+    const stakeResult = await stakeNFTs(sessionData.page, walletAddress, privateKey);
+
+    if (stakeResult.success) {
+      const { total_nfts, success_count, failed_count } = stakeResult.data;
+      console.log(`${colors.green('Stake thành công:')} ${colors.white(success_count)}/${colors.white(total_nfts)} ${colors.green('NFTs')}`);
+
+      if (failed_count > 0) {
+        console.log(`${colors.red('Lỗi:')} ${colors.white(failed_count)} ${colors.red('NFTs thất bại')}`);
+        if (stakeResult.data.error_messages && stakeResult.data.error_messages.length > 0) {
+          stakeResult.data.error_messages.forEach(msg => {
+            console.log(`  → ${colors.red(msg)}`);
+          });
         }
-      } else {
-        console.log(`✗ Collect thất bại`);
       }
+      
+      // Mark NFTs as staked in open.json
+      markAsStaked(walletAddress, {
+        total_nfts,
+        success_count,
+        failed_count,
+        timestamp: new Date().toISOString()
+      });
+      
+      fs.writeFileSync(openFile, JSON.stringify(openData, null, 2));
+      
     } else {
-      console.log(`Energy không đủ để collect (${nftStats.pending_energy ? nftStats.pending_energy.toFixed(2) : 0})`);
+      console.log(`${colors.red('Stake thất bại')}`);
     }
 
     await sessionData.browser.close();
     return true;
   } catch (error) {
-    console.log(`Lỗi xử lý: ${error.message}`);
+    console.log(`${colors.red('Lỗi stake:')} ${error.message}`);
     if (sessionData && sessionData.browser) {
       await sessionData.browser.close();
     }
@@ -337,9 +284,9 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
   }
 }
 
-async function processDailyTasks() {
+async function processStaking() {
   if (!fs.existsSync(walletFile)) {
-    console.log(`File ${walletFile} không tồn tại!`);
+    console.log(`${colors.red('File')} ${colors.white(walletFile)} ${colors.red('không tồn tại!')}`);
     return;
   }
 
@@ -347,21 +294,21 @@ async function processDailyTasks() {
   const wallets = Array.isArray(walletRawData) ? walletRawData : [];
 
   if (wallets.length === 0) {
-    console.log('Không có ví nào trong file!');
+    console.log(`${colors.red('Không có ví nào trong file!')}`);
     return;
   }
 
   if (wallets.length > proxies.length) {
-    console.log(`Không đủ proxy! Cần ${wallets.length}, có ${proxies.length}`);
+    console.log(`${colors.red('Không đủ proxy! Cần')} ${colors.white(wallets.length)}${colors.red(', có')} ${colors.white(proxies.length)}`);
     return;
   }
 
-  console.log(`Thực hiện daily tasks cho ${wallets.length} ví với ${proxies.length} proxy`);
+  console.log(`${colors.green('Stake NFTs cho')} ${colors.white(wallets.length)} ${colors.green('ví với')} ${colors.white(proxies.length)} ${colors.green('proxy')}`);
 
-  console.log(`\nKiểm tra wallets...`);
+  console.log(`\n${colors.yellow('Kiểm tra wallets...')}`);
   for (let i = 0; i < wallets.length; i++) {
     const wallet = wallets[i];
-    
+
     if (!wallet.deviceId) {
       wallet.deviceId = uuidv4().replace(/-/g, '');
     }
@@ -370,21 +317,40 @@ async function processDailyTasks() {
     }
   }
   fs.writeFileSync(walletFile, JSON.stringify(wallets, null, 2));
-  console.log(`Kiểm tra hoàn tất\n`);
+  console.log(`${colors.green('Kiểm tra hoàn tất')}\n`);
 
-  let totalProcessed = 0;
-  let totalCheckedIn = 0;
-  let totalCollected = 0;
+  let totalStaked = 0;
+  let totalSkipped = 0;
   let totalErrors = 0;
 
   for (let i = 0; i < wallets.length; i++) {
     const wallet = wallets[i];
     const proxy = proxies[i];
 
+    // Check if already staked
+    if (isAlreadyStaked(wallet.publicKey)) {
+        console.log(`\n[${i + 1}/${wallets.length}] ${colors.cyan(wallet.publicKey.substring(0, 8))}...`);
+        console.log(`${colors.gray('Bỏ qua - đã stake rồi')}`);
+        totalSkipped++;
+        await sleep(1000);
+        continue;
+    }
+
+    // Check if has NFTs
+    if (!hasNFTs(wallet.publicKey)) {
+        console.log(`\n[${i + 1}/${wallets.length}] ${colors.cyan(wallet.publicKey.substring(0, 8))}...`);
+        console.log(`${colors.gray('Bỏ qua - không có NFT')}`);
+        totalSkipped++;
+        await sleep(1000);
+        continue;
+    }
+
     const processedSuccessfully = await processWallet(wallet, proxy, i, wallets.length);
     
     if (processedSuccessfully) {
-      totalProcessed++;
+      if (isAlreadyStaked(wallet.publicKey)) {
+        totalStaked++;
+      }
     } else {
       totalErrors++;
     }
@@ -392,26 +358,61 @@ async function processDailyTasks() {
     fs.writeFileSync(walletFile, JSON.stringify(wallets, null, 2));
 
     if (i < wallets.length - 1) {
-      console.log(`Chờ 3s...`);
+      console.log(`${colors.gray('Chờ 3s...')}`);
       await sleep(3000);
     }
   }
-  
-  console.log(`\nTổng kết:`);
-  console.log(`Đã xử lý: ${totalProcessed}/${wallets.length} ví`);
-  console.log(`Lỗi: ${totalErrors} ví`);
-  console.log(`\nHoàn tất daily tasks!`);
+
+  showStats(totalStaked, totalSkipped, totalErrors);
+  console.log(`\n${colors.green('Hoàn tất!')}`);
 }
 
-console.log(`Daily Tools`);
-console.log(`Tải ${proxies.length} proxies, ${userAgents.length} user agents\n`);
+function showStats(totalStaked = 0, totalSkipped = 0, totalErrors = 0) {
+  if (Object.keys(openData).length === 0) {
+    console.log(`${colors.gray('Chưa có dữ liệu')}`);
+    return;
+  }
 
-processDailyTasks();
+  let totalWallets = 0;
+  let walletsWithStakedNFTs = 0;
+  let totalNFTs = 0;
+  let totalStakedNFTs = 0;
+
+  for (const [, nfts] of Object.entries(openData)) {
+    totalWallets++;
+    let walletStakedCount = 0;
+
+    nfts.forEach(nft => {
+      totalNFTs++;
+      if (typeof nft === 'object' && nft.staked) {
+        walletStakedCount++;
+        totalStakedNFTs++;
+      }
+    });
+
+    if (walletStakedCount > 0) {
+      walletsWithStakedNFTs++;
+    }
+  }
+
+  console.log(`\n${colors.cyan('Tổng kết:')}`);
+  console.log(`${colors.green('Ví có NFT đã stake:')} ${colors.white(walletsWithStakedNFTs)}/${colors.white(totalWallets)}`);
+  console.log(`${colors.green('NFTs đã stake:')} ${colors.white(totalStakedNFTs)}/${colors.white(totalNFTs)}`);
+
+  if (totalStaked > 0 || totalSkipped > 0 || totalErrors > 0) {
+    console.log(`${colors.blue('Phiên này:')} ${colors.white(totalStaked)} ${colors.green('stake')}, ${colors.white(totalSkipped)} ${colors.gray('bỏ qua')}, ${colors.white(totalErrors)} ${colors.red('lỗi')}`);
+  }
+}
+
+console.log(`${colors.cyan('NFT STAKING TOOL')}`);
+console.log(`${colors.green('Tải')} ${colors.white(proxies.length)} ${colors.green('proxies,')} ${colors.white(userAgents.length)} ${colors.green('user agents')}\n`);
+
+processStaking();
 
 process.on('SIGINT', () => {
-  console.log(`\n\nĐang lưu dữ liệu...`);
-  const walletRawData = JSON.parse(fs.readFileSync(walletFile, 'utf-8'));
-  fs.writeFileSync(walletFile, JSON.stringify(walletRawData, null, 2));
-  console.log(`Đã lưu wallet_sol.json`);
+  console.log(`\n\n${colors.yellow('Đang lưu dữ liệu...')}`);
+  fs.writeFileSync(openFile, JSON.stringify(openData, null, 2));
+  console.log(`${colors.green('Đã lưu open.json')}`);
+  showStats();
   process.exit(0);
 });
