@@ -297,18 +297,18 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
     proxyConfig = parseProxy(proxyString);
     console.log(`Proxy: ${colors.blue(proxyConfig.host + ':' + proxyConfig.port)}`);
   } catch (error) {
-    console.log(`${colors.red('Lỗi proxy:')} ${error.message}`);
+    console.log(`${colors.red('Proxy Error:')} ${error.message}`);
     return false;
   }
 
   let sessionData = null;
   try {
-    console.log(`${colors.yellow('Đang lấy cookies...')}`);
+    console.log(`${colors.yellow('Getting cookies...')}`);
     sessionData = await getBrowserSession(proxyConfig, wallet.userAgent);
     console.log(`${colors.green('Cookies OK')}`);
 
   } catch (error) {
-    console.log(`${colors.red('Lỗi Cookies:')} ${error.message}`);
+    console.log(`${colors.red('Cookies Error:')} ${error.message}`);
     return false;
   }
 
@@ -329,19 +329,19 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
           const nftStats = await checkNFTStats(sessionData.page, walletAddress);
 
           if (nftStats.success && nftStats.data && nftStats.data.pending_energy > 0) {
-            console.log(`${colors.green('Có')} ${colors.white(nftStats.data.pending_energy.toFixed(2))} ${colors.green('Energy to collect')}`);
+            console.log(`${colors.green('There is')} ${colors.white(nftStats.data.pending_energy.toFixed(2))} ${colors.green('Energy to collect')}`);
 
             const collectResult = await collectEnergy(sessionData.page, walletAddress, privateKey);
 
             if (collectResult.success) {
               const { total_nfts, success_count, failed_count, total_energy } = collectResult.data;
-              console.log(`${colors.green('✓ Collect thành công:')} ${colors.white(total_energy.toFixed(2))} ${colors.green('energy từ')} ${colors.white(success_count)}/${colors.white(total_nfts)} ${colors.green('NFTs')}`);
+              console.log(`${colors.green('✓ Collect successful:')} ${colors.white(total_energy.toFixed(2))} ${colors.green('energy from')} ${colors.white(success_count)}/${colors.white(total_nfts)} ${colors.green('NFTs')}`);
 
               if (failed_count > 0) {
-                console.log(`${colors.yellow('⚠ Có')} ${colors.white(failed_count)} ${colors.yellow('NFTs lỗi')}`);
+                console.log(`${colors.yellow('⚠ There is')} ${colors.white(failed_count)} ${colors.yellow('NFTs error')}`);
               }
             } else {
-              console.log(`${colors.red('✗ Collect thất bại')}`);
+              console.log(`${colors.red('✗ Collect failed')}`);
             }
           } else {
             console.log(`${colors.gray('Not enough energy to collect (')}${colors.white(nftStats.data?.pending_energy ? nftStats.data.pending_energy.toFixed(2) : 0)}${colors.gray(')')}`);
@@ -360,7 +360,7 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
     await sessionData.browser.close();
     return true;
   } catch (error) {
-    console.log(`${colors.red('Lỗi xử lý:')} ${error.message}`);
+    console.log(`${colors.red('Processing Error:')} ${error.message}`);
     if (sessionData && sessionData.browser) {
       await sessionData.browser.close();
     }
@@ -383,13 +383,13 @@ async function processDailyTasks() {
   }
 
   if (wallets.length > proxies.length) {
-    console.log(`${colors.red('Không đủ proxy! Cần')} ${colors.white(wallets.length)}${colors.red(', có')} ${colors.white(proxies.length)}`);
+    console.log(`${colors.red('Not enough proxies! Need')} ${colors.white(wallets.length)}${colors.red(', have')} ${colors.white(proxies.length)}`);
     return;
   }
 
-  console.log(`${colors.green('Thực hiện daily tasks cho')} ${colors.white(wallets.length)} ${colors.green('ví với')} ${colors.white(proxies.length)} ${colors.green('proxy')}`);
+  console.log(`${colors.green('Performing daily tasks for')} ${colors.white(wallets.length)} ${colors.green('wallets with')} ${colors.white(proxies.length)} ${colors.green('proxies')}`);
 
-  console.log(`\n${colors.yellow('Kiểm tra wallets...')}`);
+  console.log(`\n${colors.yellow('Checking wallets...')}`);
   for (let i = 0; i < wallets.length; i++) {
     const wallet = wallets[i];
 
@@ -401,7 +401,7 @@ async function processDailyTasks() {
     }
   }
   fs.writeFileSync(walletFile, JSON.stringify(wallets, null, 2));
-  console.log(`${colors.green('Kiểm tra hoàn tất')}\n`);
+  console.log(`${colors.green('Check completed')}\n`);
 
   let totalProcessed = 0;
   let totalErrors = 0;
@@ -421,26 +421,26 @@ async function processDailyTasks() {
     fs.writeFileSync(walletFile, JSON.stringify(wallets, null, 2));
 
     if (i < wallets.length - 1) {
-      console.log(`${colors.gray('Chờ 3s...')}`);
+      console.log(`${colors.gray('Waiting 3s...')}`);
       await sleep(3000);
     }
   }
 
-  console.log(`\n${colors.cyan('Tổng kết:')}`);
-  console.log(`${colors.green('Đã xử lý:')} ${colors.white(totalProcessed)}/${colors.white(wallets.length)} ${colors.green('ví')}`);
-  console.log(`${colors.red('Lỗi:')} ${colors.white(totalErrors)} ${colors.red('ví')}`);
-  console.log(`\n${colors.green('Hoàn tất daily tasks!')}`);
+  console.log(`\n${colors.cyan('Summary:')}`);
+  console.log(`${colors.green('Processed:')} ${colors.white(totalProcessed)}/${colors.white(wallets.length)} ${colors.green('wallets')}`);
+  console.log(`${colors.red('Errors:')} ${colors.white(totalErrors)} ${colors.red('wallets')}`);
+  console.log(`\n${colors.green('Completed daily tasks!')}`);
 }
 
 console.log(`${colors.cyan('DAILY TASKS TOOL')}`);
-console.log(`${colors.green('Tải')} ${colors.white(proxies.length)} ${colors.green('proxies,')} ${colors.white(userAgents.length)} ${colors.green('user agents')}\n`);
+console.log(`${colors.green('Loaded')} ${colors.white(proxies.length)} ${colors.green('proxies,')} ${colors.white(userAgents.length)} ${colors.green('user agents')}\n`);
 
 processDailyTasks();
 
 process.on('SIGINT', () => {
-  console.log(`\n\n${colors.yellow('Đang lưu dữ liệu...')}`);
+  console.log(`\n\n${colors.yellow('Saving data...')}`);
   const walletRawData = JSON.parse(fs.readFileSync(walletFile, 'utf-8'));
   fs.writeFileSync(walletFile, JSON.stringify(walletRawData, null, 2));
-  console.log(`${colors.green('Đã lưu wallet_sol.json')}`);
+  console.log(`${colors.green('Saved wallet_sol.json')}`);
   process.exit(0);
 });
