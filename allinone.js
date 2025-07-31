@@ -570,7 +570,7 @@ async function processNFTStake(wallet, proxyString, walletIndex, totalWallets) {
 async function processWallets(mode) {
   if (!fs.existsSync(walletFile)) {
     console.log(`${colors.red('File')} ${colors.white(walletFile)} ${colors.red('does not exist!')}`);
-    return;
+    return { processed: 0, skipped: 0, errors: 0, walletsLength: 0 };
   }
 
   const walletRawData = JSON.parse(fs.readFileSync(walletFile, 'utf-8'));
@@ -578,12 +578,12 @@ async function processWallets(mode) {
 
   if (wallets.length === 0) {
     console.log(`${colors.red('No wallets found in the file!')}`);
-    return;
+    return { processed: 0, skipped: 0, errors: 0, walletsLength: 0 };
   }
 
   if (wallets.length > proxies.length) {
     console.log(`${colors.red('Not enough proxies! Need')} ${colors.white(wallets.length)}${colors.red(', have')} ${colors.white(proxies.length)}`);
-    return;
+    return { processed: 0, skipped: 0, errors: 0, walletsLength: 0 };
   }
 
   console.log(`${colors.green(`Processing ${mode} for`)} ${colors.white(wallets.length)} ${colors.green('wallets with')} ${colors.white(proxies.length)} ${colors.green('proxies')}`);
@@ -664,6 +664,8 @@ async function processWallets(mode) {
   console.log(`${colors.red('Errors:')} ${colors.white(totalErrors)} ${colors.red('wallets')}`);
   if (mode === 'Box Open') showBoxStats();
   if (mode === 'NFT Stake') showStakeStats(totalProcessed, totalSkipped, totalErrors);
+
+  return { processed: totalProcessed, skipped: totalSkipped, errors: totalErrors, walletsLength: wallets.length };
 }
 
 function showBoxStats() {
@@ -722,6 +724,40 @@ function showStakeStats(totalStaked, totalSkipped, totalErrors) {
   console.log(`${colors.blue('This session:')} ${colors.white(totalStaked)} ${colors.green('staked')}, ${colors.white(totalSkipped)} ${colors.gray('skipped')}, ${colors.white(totalErrors)} ${colors.red('errors')}`);
 }
 
+async function runAllTasks() {
+  console.log(`${colors.cyan('=== Running All Tasks ===')}`);
+  const tasks = ['DailyCheckIn', 'Box Open', 'NFT Stake'];
+  let overallSummary = {
+    DailyCheckIn: { processed: 0, skipped: 0, errors: 0 },
+    BoxOpen: { processed: 0, skipped: 0, errors: 0 },
+    NFTStake: { processed: 0, skipped: 0, errors: 0 }
+  };
+
+  for (const mode of tasks) {
+    console.log(`\n${colors.yellow(`Starting ${mode}...`)}`);
+    const result = await processWallets(mode);
+    overallSummary[mode.replace(' ', '')] = {
+      processed: result.processed,
+      skipped: result.skipped,
+      errors: result.errors
+    };
+    console.log(`${colors.green(`Completed ${mode}!`)}`);
+    if (mode !== tasks[tasks.length - 1]) {
+      console.log(`${colors.gray('Waiting 5s before next task...')}`);
+      await sleep(5000);
+    }
+  }
+
+  console.log(`\n${colors.cyan('=== Overall Summary ===')}`);
+  for (const mode of tasks) {
+    const stats = overallSummary[mode.replace(' ', '')];
+    console.log(`${colors.blue(mode)}:`);
+    console.log(`  ${colors.green('Processed:')} ${colors.white(stats.processed)} wallets`);
+    console.log(`  ${colors.gray('Skipped:')} ${colors.white(stats.skipped)} wallets`);
+    console.log(`  ${colors.red('Errors:')} ${colors.white(stats.errors)} wallets`);
+  }
+}
+
 function showMenu() {
   console.log(`${colors.cyan('=== BUBUVERSE AUTOMATION TOOL ===')}`);
   console.log(`${colors.green('Loaded')} ${colors.white(proxies.length)} ${colors.green('proxies,')} ${colors.white(userAgents.length)} ${colors.green('user agents')}\n`);
@@ -729,26 +765,35 @@ function showMenu() {
   console.log(`${colors.white('1.')} DailyCheckIn`);
   console.log(`${colors.white('2.')} Box Open`);
   console.log(`${colors.white('3.')} NFT Stake`);
-  console.log(`${colors.white('4.')} Exit`);
+  console.log(`${colors.white('4.')} Run All`);
+  console.log(`${colors.white('5.')} Exit`);
 }
 
 async function main() {
   while (true) {
     showMenu();
-    const choice = readline.question(`${colors.cyan('Enter your choice (1-4): ')}`);
+    const choice = readline.question(`${colors.cyan('Enter your choice (1-5): ')}`);
     let mode;
     if (choice === '1') mode = 'DailyCheckIn';
     else if (choice === '2') mode = 'Box Open';
     else if (choice === '3') mode = 'NFT Stake';
     else if (choice === '4') {
+      await runAllTasks();
+      console.log(`${colors.green('Completed all tasks!')}`);
+    }
+    else if (choice === '5') {
       console.log(`${colors.green('Exiting...')}`);
       break;
     } else {
-      console.log(`${colors.red('Invalid choice! Please select 1, 2, 3, or 4.')}`);
+      console.log(`${colors.red('Invalid choice! Please select 1, 2, 3, 4, or 5.')}`);
       continue;
     }
-    await processWallets(mode);
-    console.log(`\n${colors.green(`Completed ${mode}!`)}`);
+
+    if (choice !== '4' && choice !== '5') {
+      await processWallets(mode);
+      console.log(`\n${colors.green(`Completed ${mode}!`)}`);
+    }
+
     console.log(`${colors.yellow('Press Enter to return to menu...')}`);
     readline.question();
   }
