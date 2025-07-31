@@ -24,7 +24,7 @@ if (fs.existsSync(openFile)) {
     openData = JSON.parse(fs.readFileSync(openFile, 'utf-8'));
   } catch (err) {
     openData = {};
-    console.log(`${colors.yellow('[!] Lỗi đọc open.json, tạo mới.')}`);
+    console.log(`${colors.yellow('[!] Error reading open.json, creating new.')}`);
   }
 }
 
@@ -238,13 +238,13 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
     proxyConfig = parseProxy(proxyString);
     console.log(`Proxy: ${colors.blue(proxyConfig.host + ':' + proxyConfig.port)}`);
   } catch (error) {
-    console.log(`${colors.red('Lỗi proxy:')} ${error.message}`);
+    console.log(`${colors.red('Proxy Error:')} ${error.message}`);
     return false;
   }
 
   let sessionData = null;
   try {
-    console.log(`${colors.yellow('Đang lấy cookies...')}`);
+    console.log(`${colors.yellow('Getting cookies...')}`);
     sessionData = await getBrowserSessionWithPuppeteer(proxyConfig, wallet.userAgent);
 
     wallet.vcrcsCookie = sessionData.vcrcsCookie;
@@ -256,21 +256,21 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
     console.log(`${colors.green('Cookies OK')}`);
 
   } catch (error) {
-    console.log(`${colors.red('Lỗi Cookies:')} ${error.message}`);
+    console.log(`${colors.red('Cookies Error:')} ${error.message}`);
     return false;
   }
 
   try {
-    console.log(`${colors.yellow('Kiểm tra boxes...')}`);
+    console.log(`${colors.yellow('Checking boxes...')}`);
     const boxes = await getBoxesWithPuppeteer(sessionData.page, walletAddress);
 
     if (boxes.length === 0) {
-      console.log(`${colors.gray('Không có box')}`);
+      console.log(`${colors.gray('No boxes')}`);
       await sessionData.browser.close();
       return true;
     }
 
-    console.log(`${colors.green('Tìm thấy')} ${colors.white(boxes.length)} ${colors.green('boxes')}`);
+    console.log(`${colors.green('Found')} ${colors.white(boxes.length)} ${colors.green('boxes')}`);
 
     if (!openData[walletAddress]) {
       openData[walletAddress] = [];
@@ -284,7 +284,7 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
       const boxId = box.id;
 
       try {
-        console.log(`${colors.yellow('Mở box')} ${colors.white(i + 1)}/${colors.white(boxes.length)}...`);
+        console.log(`${colors.yellow('Opening box')} ${colors.white(i + 1)}/${colors.white(boxes.length)}...`);
 
         const result = await openBoxWithPuppeteer(sessionData.page, walletAddress, privateKey, boxId);
         const templateId = result.template_id;
@@ -301,7 +301,7 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
         }
 
       } catch (error) {
-        console.log(`  → ${colors.red('Lỗi:')} ${error.message}`);
+        console.log(`  → ${colors.red('Error:')} ${error.message}`);
         failCount++;
 
         if (i < boxes.length - 1) {
@@ -310,13 +310,13 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
       }
     }
 
-    console.log(`${colors.green('Hoàn thành:')} ${colors.white(successCount)} ${colors.green('OK')}, ${colors.white(failCount)} ${colors.red('lỗi')}`);
+    console.log(`${colors.green('Completed:')} ${colors.white(successCount)} ${colors.green('OK')}, ${colors.white(failCount)} ${colors.red('errors')}`);
     fs.writeFileSync(openFile, JSON.stringify(openData, null, 2));
     
     await sessionData.browser.close();
     return true;
   } catch (error) {
-    console.log(`${colors.red('Lỗi xử lý:')} ${error.message}`);
+    console.log(`${colors.red('Processing Error:')} ${error.message}`);
     if (sessionData && sessionData.browser) {
       await sessionData.browser.close();
     }
@@ -326,7 +326,7 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
 
 async function processBatchMode() {
   if (!fs.existsSync(walletFile)) {
-    console.log(`${colors.red('File')} ${colors.white(walletFile)} ${colors.red('không tồn tại!')}`);
+    console.log(`${colors.red('File')} ${colors.white(walletFile)} ${colors.red('does not exist!')}`);
     return;
   }
 
@@ -334,18 +334,18 @@ async function processBatchMode() {
   const wallets = Array.isArray(walletRawData) ? walletRawData : [];
 
   if (wallets.length === 0) {
-    console.log(`${colors.red('Không có ví nào trong file!')}`);
+    console.log(`${colors.red('No wallets found in the file!')}`);
     return;
   }
 
   if (wallets.length > proxies.length) {
-    console.log(`${colors.red('Không đủ proxy! Cần')} ${colors.white(wallets.length)}${colors.red(', có')} ${colors.white(proxies.length)}`);
+    console.log(`${colors.red('Not enough proxies! Need')} ${colors.white(wallets.length)}${colors.red(', have')} ${colors.white(proxies.length)}`);
     return;
   }
 
-  console.log(`${colors.green('Xử lý')} ${colors.white(wallets.length)} ${colors.green('ví với')} ${colors.white(proxies.length)} ${colors.green('proxy')}`);
+  console.log(`${colors.green('Processing')} ${colors.white(wallets.length)} ${colors.green('wallets with')} ${colors.white(proxies.length)} ${colors.green('proxies')}`);
 
-  console.log(`\n${colors.yellow('Tiền xử lý wallets...')}`);
+  console.log(`\n${colors.yellow('Preprocessing wallets...')}`);
   for (let i = 0; i < wallets.length; i++) {
     const wallet = wallets[i];
 
@@ -363,7 +363,7 @@ async function processBatchMode() {
     }
   }
   fs.writeFileSync(walletFile, JSON.stringify(wallets, null, 2));
-  console.log(`${colors.green('Tiền xử lý hoàn tất')}\n`);
+  console.log(`${colors.green('Preprocessing completed')}\n`);
 
   for (let i = 0; i < wallets.length; i++) {
     const wallet = wallets[i];
@@ -372,7 +372,7 @@ async function processBatchMode() {
     if (hasNFT(wallet.publicKey)) {
         const nftInfo = getNFTInfo(openData[wallet.publicKey][0]);
         console.log(`\n[${i + 1}/${wallets.length}] ${colors.cyan(wallet.publicKey.substring(0, 8))}...`);
-        console.log(`${colors.gray('Bỏ qua - đã có')} ${nftInfo.color(nftInfo.rarity)}`);
+        console.log(`${colors.gray('Skipping - already has')} ${nftInfo.color(nftInfo.rarity)}`);
         await sleep(1000);
         continue;
     }
@@ -382,20 +382,20 @@ async function processBatchMode() {
     fs.writeFileSync(walletFile, JSON.stringify(wallets, null, 2));
 
     if (i < wallets.length - 1) {
-      console.log(`${colors.gray('Chờ 3s...')}`);
+      console.log(`${colors.gray('Waiting 3s...')}`);
       await sleep(3000);
     }
   }
 
   showStats();
-  console.log(`\n${colors.green('Hoàn tất!')}`);
+  console.log(`\n${colors.green('Completed!')}`);
 }
 
 function showStats() {
-  console.log(`\n${colors.cyan('=== Thống kê ===')}`)
+  console.log(`\n${colors.cyan('=== Statistics ===')}`);
 
   if (Object.keys(openData).length === 0) {
-    console.log(`${colors.gray('Chưa có dữ liệu')}`);
+    console.log(`${colors.gray('No data yet')}`);
     return;
   }
 
@@ -421,22 +421,22 @@ function showStats() {
     });
   }
 
-  console.log(`\n${colors.cyan('Tổng kết:')}`);
+  console.log(`\n${colors.cyan('Summary:')}`);
   console.log(`${colors.green('NFT 10x:')} ${colors.white(rarityCount['10x'])}`);
   console.log(`${colors.yellow('NFT 100x:')} ${colors.white(rarityCount['100x'])}`);
   console.log(`${colors.magenta('NFT 1000x:')} ${colors.white(rarityCount['1000x'])}`);
-  console.log(`${colors.blue('Tổng boxes:')} ${colors.white(totalBoxes)}`);
+  console.log(`${colors.blue('Total boxes:')} ${colors.white(totalBoxes)}`);
 }
 
 console.log(`${colors.cyan('SOLANA BOX OPENER')}`);
-console.log(`${colors.green('Tải')} ${colors.white(proxies.length)} ${colors.green('proxies,')} ${colors.white(userAgents.length)} ${colors.green('user agents')}\n`);
+console.log(`${colors.green('Loaded')} ${colors.white(proxies.length)} ${colors.green('proxies,')} ${colors.white(userAgents.length)} ${colors.green('user agents')}\n`);
 
 processBatchMode();
 
 process.on('SIGINT', () => {
-  console.log(`\n\n${colors.yellow('Đang lưu dữ liệu...')}`);
+  console.log(`\n\n${colors.yellow('Saving data...')}`);
   fs.writeFileSync(openFile, JSON.stringify(openData, null, 2));
-  console.log(`${colors.green('Đã lưu open.json')}`);
+  console.log(`${colors.green('Saved open.json')}`);
   showStats();
   process.exit(0);
 });
