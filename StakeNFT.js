@@ -21,7 +21,7 @@ if (fs.existsSync(openFile)) {
     openData = JSON.parse(fs.readFileSync(openFile, 'utf-8'));
   } catch (err) {
     openData = {};
-    console.log(`${colors.yellow('[!] Lỗi đọc open.json, tạo mới.')}`);
+    console.log(`${colors.yellow('[!] Error reading open.json, creating new.')}`);
   }
 }
 
@@ -213,45 +213,45 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
     proxyConfig = parseProxy(proxyString);
     console.log(`Proxy: ${colors.blue(proxyConfig.host + ':' + proxyConfig.port)}`);
   } catch (error) {
-    console.log(`${colors.red('Lỗi proxy:')} ${error.message}`);
+    console.log(`${colors.red('Proxy Error:')} ${error.message}`);
     return false;
   }
 
   let sessionData = null;
   try {
-    console.log(`${colors.yellow('Đang lấy cookies...')}`);
+    console.log(`${colors.yellow('Getting cookies...')}`);
     sessionData = await getBrowserSession(proxyConfig, wallet.userAgent);
     console.log(`${colors.green('Cookies OK')}`);
 
   } catch (error) {
-    console.log(`${colors.red('Lỗi Cookies:')} ${error.message}`);
+    console.log(`${colors.red('Cookies Error:')} ${error.message}`);
     return false;
   }
 
   try {
     // Check if wallet has NFTs
     if (!hasNFTs(walletAddress)) {
-      console.log(`${colors.gray('Không có NFT để stake')}`);
+      console.log(`${colors.gray('No NFTs to stake')}`);
       await sessionData.browser.close();
       return true;
     }
 
     // Check if already staked
     if (isAlreadyStaked(walletAddress)) {
-      console.log(`${colors.gray('NFTs đã được stake rồi')}`);
+      console.log(`${colors.gray('NFTs already staked')}`);
       await sessionData.browser.close();
       return true;
     }
 
-    console.log(`${colors.yellow('Đang stake NFTs...')}`);
+    console.log(`${colors.yellow('Staking NFTs...')}`);
     const stakeResult = await stakeNFTs(sessionData.page, walletAddress, privateKey);
 
     if (stakeResult.success) {
       const { total_nfts, success_count, failed_count } = stakeResult.data;
-      console.log(`${colors.green('Stake thành công:')} ${colors.white(success_count)}/${colors.white(total_nfts)} ${colors.green('NFTs')}`);
+      console.log(`${colors.green('Stake successful:')} ${colors.white(success_count)}/${colors.white(total_nfts)} ${colors.green('NFTs')}`);
 
       if (failed_count > 0) {
-        console.log(`${colors.red('Lỗi:')} ${colors.white(failed_count)} ${colors.red('NFTs thất bại')}`);
+        console.log(`${colors.red('Error:')} ${colors.white(failed_count)} ${colors.red('NFTs failed')}`);
         if (stakeResult.data.error_messages && stakeResult.data.error_messages.length > 0) {
           stakeResult.data.error_messages.forEach(msg => {
             console.log(`  → ${colors.red(msg)}`);
@@ -270,13 +270,13 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
       fs.writeFileSync(openFile, JSON.stringify(openData, null, 2));
       
     } else {
-      console.log(`${colors.red('Stake thất bại')}`);
+      console.log(`${colors.red('Stake failed')}`);
     }
 
     await sessionData.browser.close();
     return true;
   } catch (error) {
-    console.log(`${colors.red('Lỗi stake:')} ${error.message}`);
+    console.log(`${colors.red('Staking Error:')} ${error.message}`);
     if (sessionData && sessionData.browser) {
       await sessionData.browser.close();
     }
@@ -286,7 +286,7 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
 
 async function processStaking() {
   if (!fs.existsSync(walletFile)) {
-    console.log(`${colors.red('File')} ${colors.white(walletFile)} ${colors.red('không tồn tại!')}`);
+    console.log(`${colors.red('File')} ${colors.white(walletFile)} ${colors.red('does not exist!')}`);
     return;
   }
 
@@ -294,18 +294,18 @@ async function processStaking() {
   const wallets = Array.isArray(walletRawData) ? walletRawData : [];
 
   if (wallets.length === 0) {
-    console.log(`${colors.red('Không có ví nào trong file!')}`);
+    console.log(`${colors.red('No wallets found in the file!')}`);
     return;
   }
 
   if (wallets.length > proxies.length) {
-    console.log(`${colors.red('Không đủ proxy! Cần')} ${colors.white(wallets.length)}${colors.red(', có')} ${colors.white(proxies.length)}`);
+    console.log(`${colors.red('Not enough proxies! Need')} ${colors.white(wallets.length)}${colors.red(', have')} ${colors.white(proxies.length)}`);
     return;
   }
 
-  console.log(`${colors.green('Stake NFTs cho')} ${colors.white(wallets.length)} ${colors.green('ví với')} ${colors.white(proxies.length)} ${colors.green('proxy')}`);
+  console.log(`${colors.green('Stake NFTs for')} ${colors.white(wallets.length)} ${colors.green('wallets with')} ${colors.white(proxies.length)} ${colors.green('proxies')}`);
 
-  console.log(`\n${colors.yellow('Kiểm tra wallets...')}`);
+  console.log(`\n${colors.yellow('Checking wallets...')}`);
   for (let i = 0; i < wallets.length; i++) {
     const wallet = wallets[i];
 
@@ -317,7 +317,7 @@ async function processStaking() {
     }
   }
   fs.writeFileSync(walletFile, JSON.stringify(wallets, null, 2));
-  console.log(`${colors.green('Kiểm tra hoàn tất')}\n`);
+  console.log(`${colors.green('Check completed')}\n`);
 
   let totalStaked = 0;
   let totalSkipped = 0;
@@ -330,7 +330,7 @@ async function processStaking() {
     // Check if already staked
     if (isAlreadyStaked(wallet.publicKey)) {
         console.log(`\n[${i + 1}/${wallets.length}] ${colors.cyan(wallet.publicKey.substring(0, 8))}...`);
-        console.log(`${colors.gray('Bỏ qua - đã stake rồi')}`);
+        console.log(`${colors.gray('Skipping - already staked')}`);
         totalSkipped++;
         await sleep(1000);
         continue;
@@ -339,7 +339,7 @@ async function processStaking() {
     // Check if has NFTs
     if (!hasNFTs(wallet.publicKey)) {
         console.log(`\n[${i + 1}/${wallets.length}] ${colors.cyan(wallet.publicKey.substring(0, 8))}...`);
-        console.log(`${colors.gray('Bỏ qua - không có NFT')}`);
+        console.log(`${colors.gray('Skipping - no NFTs')}`);
         totalSkipped++;
         await sleep(1000);
         continue;
@@ -358,18 +358,18 @@ async function processStaking() {
     fs.writeFileSync(walletFile, JSON.stringify(wallets, null, 2));
 
     if (i < wallets.length - 1) {
-      console.log(`${colors.gray('Chờ 3s...')}`);
+      console.log(`${colors.gray('Waiting 3s...')}`);
       await sleep(3000);
     }
   }
 
   showStats(totalStaked, totalSkipped, totalErrors);
-  console.log(`\n${colors.green('Hoàn tất!')}`);
+  console.log(`\n${colors.green('Completed!')}`);
 }
 
 function showStats(totalStaked = 0, totalSkipped = 0, totalErrors = 0) {
   if (Object.keys(openData).length === 0) {
-    console.log(`${colors.gray('Chưa có dữ liệu')}`);
+    console.log(`${colors.gray('No data yet')}`);
     return;
   }
 
@@ -395,24 +395,24 @@ function showStats(totalStaked = 0, totalSkipped = 0, totalErrors = 0) {
     }
   }
 
-  console.log(`\n${colors.cyan('Tổng kết:')}`);
-  console.log(`${colors.green('Ví có NFT đã stake:')} ${colors.white(walletsWithStakedNFTs)}/${colors.white(totalWallets)}`);
-  console.log(`${colors.green('NFTs đã stake:')} ${colors.white(totalStakedNFTs)}/${colors.white(totalNFTs)}`);
+  console.log(`\n${colors.cyan('Summary:')}`);
+  console.log(`${colors.green('Wallets with staked NFTs:')} ${colors.white(walletsWithStakedNFTs)}/${colors.white(totalWallets)}`);
+  console.log(`${colors.green('Staked NFTs:')} ${colors.white(totalStakedNFTs)}/${colors.white(totalNFTs)}`);
 
   if (totalStaked > 0 || totalSkipped > 0 || totalErrors > 0) {
-    console.log(`${colors.blue('Phiên này:')} ${colors.white(totalStaked)} ${colors.green('stake')}, ${colors.white(totalSkipped)} ${colors.gray('bỏ qua')}, ${colors.white(totalErrors)} ${colors.red('lỗi')}`);
+    console.log(`${colors.blue('This session:')} ${colors.white(totalStaked)} ${colors.green('staked')}, ${colors.white(totalSkipped)} ${colors.gray('skipped')}, ${colors.white(totalErrors)} ${colors.red('errors')}`);
   }
 }
 
 console.log(`${colors.cyan('NFT STAKING TOOL')}`);
-console.log(`${colors.green('Tải')} ${colors.white(proxies.length)} ${colors.green('proxies,')} ${colors.white(userAgents.length)} ${colors.green('user agents')}\n`);
+console.log(`${colors.green('Loaded')} ${colors.white(proxies.length)} ${colors.green('proxies,')} ${colors.white(userAgents.length)} ${colors.green('user agents')}\n`);
 
 processStaking();
 
 process.on('SIGINT', () => {
-  console.log(`\n\n${colors.yellow('Đang lưu dữ liệu...')}`);
+  console.log(`\n\n${colors.yellow('Saving data...')}`);
   fs.writeFileSync(openFile, JSON.stringify(openData, null, 2));
-  console.log(`${colors.green('Đã lưu open.json')}`);
+  console.log(`${colors.green('Saved open.json')}`);
   showStats();
   process.exit(0);
 });
