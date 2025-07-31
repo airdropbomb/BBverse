@@ -314,22 +314,22 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
 
   try {
     if (!isAlreadyCheckedInToday(wallet)) {
-      console.log(`${colors.yellow('Đang kiểm tra daily check-in...')}`);
+      console.log(`${colors.yellow('Checking daily check-in...')}`);
       const checkInStatus = await checkDailyStatus(sessionData.page, walletAddress);
 
       if (checkInStatus.can_check_in) {
-        console.log(`${colors.yellow('Đang thực hiện daily check-in...')}`);
+        console.log(`${colors.yellow('Performing daily check-in...')}`);
         const checkInResult = await performDailyCheckIn(sessionData.page, walletAddress);
 
         if (checkInResult.success) {
-          console.log(`${colors.green('✓ Check-in thành công! Nhận')} ${colors.white(checkInResult.energy_reward)} ${colors.green('energy (Day')} ${colors.white(checkInResult.check_in_count)}${colors.green(')')}`);
+          console.log(`${colors.green('✓ Check-in Success! Received')} ${colors.white(checkInResult.energy_reward)} ${colors.green('energy (Day')} ${colors.white(checkInResult.check_in_count)}${colors.green(')')}`);
           markAsCheckedIn(wallet);
           
-          console.log(`${colors.yellow('Đang kiểm tra energy sau check-in...')}`);
+          console.log(`${colors.yellow('Checking energy after check-in...')}`);
           const nftStats = await checkNFTStats(sessionData.page, walletAddress);
 
           if (nftStats.success && nftStats.data && nftStats.data.pending_energy > 0) {
-            console.log(`${colors.green('Có')} ${colors.white(nftStats.data.pending_energy.toFixed(2))} ${colors.green('energy để collect')}`);
+            console.log(`${colors.green('Có')} ${colors.white(nftStats.data.pending_energy.toFixed(2))} ${colors.green('Energy to collect')}`);
 
             const collectResult = await collectEnergy(sessionData.page, walletAddress, privateKey);
 
@@ -344,17 +344,17 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
               console.log(`${colors.red('✗ Collect thất bại')}`);
             }
           } else {
-            console.log(`${colors.gray('Energy không đủ để collect (')}${colors.white(nftStats.data?.pending_energy ? nftStats.data.pending_energy.toFixed(2) : 0)}${colors.gray(')')}`);
+            console.log(`${colors.gray('Not enough energy to collect (')}${colors.white(nftStats.data?.pending_energy ? nftStats.data.pending_energy.toFixed(2) : 0)}${colors.gray(')')}`);
           }
         } else {
-          console.log(`${colors.red('✗ Check-in thất bại')}`);
+          console.log(`${colors.red('✗ Check-in failed')}`);
         }
       } else {
-        console.log(`${colors.gray('Đã check-in hôm nay rồi')}`);
+        console.log(`${colors.gray('Already checked in today')}`);
         markAsCheckedIn(wallet);
       }
     } else {
-      console.log(`${colors.gray('Bỏ qua - đã check-in hôm nay')}`);
+      console.log(`${colors.gray('Skip - already checked in today')}`);
     }
 
     await sessionData.browser.close();
@@ -370,7 +370,7 @@ async function processWallet(wallet, proxyString, walletIndex, totalWallets) {
 
 async function processDailyTasks() {
   if (!fs.existsSync(walletFile)) {
-    console.log(`${colors.red('File')} ${colors.white(walletFile)} ${colors.red('không tồn tại!')}`);
+    console.log(`${colors.red('File')} ${colors.white(walletFile)} ${colors.red('Does not exist!')}`);
     return;
   }
 
@@ -378,7 +378,7 @@ async function processDailyTasks() {
   const wallets = Array.isArray(walletRawData) ? walletRawData : [];
 
   if (wallets.length === 0) {
-    console.log(`${colors.red('Không có ví nào trong file!')}`);
+    console.log(`${colors.red('No wallets found in the file!')}`);
     return;
   }
 
