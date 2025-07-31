@@ -26,7 +26,7 @@ Automates the opening of Boxes through `OpenBox` and stakes the received NFTs th
 3. **proxy.txt**: (Must Need)
 
    ```bash
-   npm install
+   nano proxy.txt
    ```
      ```
      https://username1:pass@host:port
