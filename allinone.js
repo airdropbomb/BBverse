@@ -7,31 +7,15 @@ const { v4: uuidv4 } = require('uuid');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const readline = require('readline-sync');
-const bip39 = require('bip39');
-const ed25519 = require('ed25519-hd-key');
 
 puppeteer.use(StealthPlugin());
 
 const proxies = fs.readFileSync('proxy.txt', 'utf-8').split('\n').filter(Boolean);
-
-let userAgents = [];
-if (!fs.existsSync('ua.txt') || fs.readFileSync('ua.txt', 'utf-8').trim() === '') {
-  const generated = [];
-  for (let i = 0; i < 1000; i++) {
-    const ver = Math.floor(Math.random() * 50) + 70;
-    const ua = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${ver}.0.${Math.floor(Math.random() * 5000)}.0 Safari/537.36`;
-    generated.push(ua);
-  }
-  fs.writeFileSync('ua.txt', generated.join('\n'));
-  userAgents = generated;
-} else {
-  userAgents = fs.readFileSync('ua.txt', 'utf-8').split('\n').filter(Boolean);
-}
+const userAgents = fs.readFileSync('ua.txt', 'utf-8').split('\n').filter(Boolean);
 
 const walletFile = 'wallet_sol.json';
 const openFile = 'open.json';
 let openData = {};
-let walletData = [];
 
 if (fs.existsSync(openFile)) {
   try {
@@ -40,11 +24,6 @@ if (fs.existsSync(openFile)) {
     openData = {};
     console.log(`${colors.yellow('[!] Error reading open.json, creating new.')}`);
   }
-}
-
-if (fs.existsSync(walletFile)) {
-  const data = JSON.parse(fs.readFileSync(walletFile, 'utf-8'));
-  walletData = Array.isArray(data) ? data : [];
 }
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
@@ -342,116 +321,6 @@ async function stakeNFTs(page, walletAddress, privateKey) {
   }
 }
 
-async function createWallets(count, referrerAddress) {
-  console.log(colors.blue(`🔍 Loaded ${proxies.length} proxies and ${userAgents.length} user agents`));
-  console.log(colors.yellow(`⚠️ Each wallet will use a separate proxy to avoid IP bans`));
-  let createdCount = 0;
-
-  for (let i = 0; i < count; i++) {
-    console.log(colors.cyan(`\n[${i + 1}/${count}] === CREATING NEW WALLET ===`));
-
-    if (i >= proxies.length) {
-      console.log(colors.red(`[!] Out of proxies! Only ${proxies.length} proxies available for ${count} wallets`));
-      break;
-    }
-
-    const proxyString = proxies[i].trim();
-    const userAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-    const deviceId = uuidv4().replace(/-/g, '');
-
-    const mnemonic = bip39.generateMnemonic(128);
-    const seed = bip39.mnemonicToSeedSync(mnemonic);
-    const path = "m/44'/501'/0'/0'";
-    const derived = ed25519.derivePath(path, seed.toString('hex')).key;
-    const keypair = Keypair.fromSeed(derived);
-
-    const publicKey = keypair.publicKey.toBase58();
-    const privateKey = bs58.encode(keypair.secretKey);
-
-    console.log(`🌐 Creating wallet: ${publicKey}`);
-    console.log(`↳ Dedicated proxy #${i + 1}: ${proxyString}`);
-    console.log(`↳ Device ID: ${deviceId}`);
-
-    try {
-      const proxyConfig = parseProxy(proxyString);
-      const sessionData = await getBrowserSession(proxyConfig, userAgent, 'https://bubuverse.fun/space');
-      const page = sessionData.page;
-      const browser = sessionData.browser;
-
-      await sleep(5000); // Additional wait after page load
-
-      const cookies = await page.cookies();
-      const vcrcsCookie = cookies.find(c => c.name === '_vcrcs');
-      if (!vcrcsCookie) {
-        throw new Error("Could not find _vcrcs cookie!");
-      }
-
-      const response = await page.evaluate(async ({ publicKey, referrerAddress, deviceId, cookieValue }) => {
-        try {
-          const res = await fetch('https://bubuverse.fun/api/users', {
-            method: 'POST',
-            headers: {
-              'accept': '*/*',
-              'accept-language': 'vi-VN,vi;q=0.9',
-              'content-type': 'application/json',
-              'user-agent': navigator.userAgent,
-              'referer': location.href,
-              'origin': 'https://bubuverse.fun',
-              'cookie': `_vcrcs=${cookieValue}`
-            },
-            body: JSON.stringify({
-              walletAddress: publicKey,
-              referrerAddress,
-              deviceId
-            })
-          });
-
-          const responseText = await res.text();
-          let json;
-          try {
-            json = JSON.parse(responseText);
-          } catch (e) {
-            json = { error: 'Invalid JSON response', raw: responseText.substring(0, 200) };
-          }
-
-          return { status: res.status, ok: res.ok, body: json };
-        } catch (error) {
-          return { status: 0, ok: false, body: { error: error.message } };
-        }
-      }, { publicKey, referrerAddress, deviceId, cookieValue: vcrcsCookie.value });
-
-      if (response.ok) {
-        const wallet = {
-          mnemonic,
-          privateKey,
-          publicKey,
-          deviceId,
-          userAgent
-        };
-        walletData.push(wallet);
-        fs.writeFileSync(walletFile, JSON.stringify(walletData, null, 2));
-        console.log(colors.green(`[+] Success! Wallet: ${publicKey}`));
-        createdCount++;
-      } else {
-        console.log(colors.red(`[!] Server error: ${response.status}`));
-        console.log(colors.gray('Response:', JSON.stringify(response.body, null, 2)));
-      }
-
-      await browser.close();
-    } catch (err) {
-      console.log(colors.red(`[!] Error creating wallet: ${err.message || err}`));
-    }
-
-    const delayTime = Math.random() * 7000 + 5000;
-    console.log(colors.gray(`⏳ Waiting ${Math.round(delayTime/1000)}s...`));
-    await sleep(delayTime);
-  }
-
-  console.log(colors.green('\n✅ Completed. Wallets saved to wallet_sol.json'));
-  console.log(colors.cyan(`📊 Total created: ${createdCount} wallets`));
-  return createdCount;
-}
-
 function isAlreadyCheckedInToday(wallet) {
   if (!wallet.lastCheckinDate) return false;
   const today = new Date().toDateString();
@@ -698,7 +567,7 @@ async function processNFTStake(wallet, proxyString, walletIndex, totalWallets) {
   }
 }
 
-async processWallets(mode) {
+async function processWallets(mode) {
   if (!fs.existsSync(walletFile)) {
     console.log(`${colors.red('File')} ${colors.white(walletFile)} ${colors.red('does not exist!')}`);
     return { processed: 0, skipped: 0, errors: 0, walletsLength: 0 };
@@ -857,9 +726,8 @@ function showStakeStats(totalStaked, totalSkipped, totalErrors) {
 
 async function runAllTasks() {
   console.log(`${colors.cyan('=== Running All Tasks ===')}`);
-  const tasks = ['Create Wallets', 'DailyCheckIn', 'Box Open', 'NFT Stake'];
+  const tasks = ['DailyCheckIn', 'Box Open', 'NFT Stake'];
   let overallSummary = {
-    CreateWallets: { processed: 0, skipped: 0, errors: 0 },
     DailyCheckIn: { processed: 0, skipped: 0, errors: 0 },
     BoxOpen: { processed: 0, skipped: 0, errors: 0 },
     NFTStake: { processed: 0, skipped: 0, errors: 0 }
@@ -867,20 +735,12 @@ async function runAllTasks() {
 
   for (const mode of tasks) {
     console.log(`\n${colors.yellow(`Starting ${mode}...`)}`);
-    if (mode === 'Create Wallets') {
-      const count = parseInt(readline.question(colors.yellow('Enter the number of wallets to create: ')));
-      const referrerAddress = readline.question(colors.yellow('Enter referrerAddress: '));
-      const createdCount = await createWallets(count, referrerAddress);
-      overallSummary.CreateWallets.processed = createdCount;
-      overallSummary.CreateWallets.errors = count - createdCount;
-    } else {
-      const result = await processWallets(mode);
-      overallSummary[mode.replace(' ', '')] = {
-        processed: result.processed,
-        skipped: result.skipped,
-        errors: result.errors
-      };
-    }
+    const result = await processWallets(mode);
+    overallSummary[mode.replace(' ', '')] = {
+      processed: result.processed,
+      skipped: result.skipped,
+      errors: result.errors
+    };
     console.log(`${colors.green(`Completed ${mode}!`)}`);
     if (mode !== tasks[tasks.length - 1]) {
       console.log(`${colors.gray('Waiting 5s before next task...')}`);
@@ -912,14 +772,13 @@ function showMenu() {
   console.log(`${colors.white('2.')} Box Open`);
   console.log(`${colors.white('3.')} NFT Stake`);
   console.log(`${colors.white('4.')} Run All`);
-  console.log(`${colors.white('5.')} Create Wallets`);
-  console.log(`${colors.white('6.')} Exit`);
+  console.log(`${colors.white('5.')} Exit`);
 }
 
 async function main() {
   while (true) {
     showMenu();
-    const choice = readline.question(`${colors.cyan('Enter your choice (1-6): ')}`);
+    const choice = readline.question(`${colors.cyan('Enter your choice (1-5): ')}`);
     let mode;
     if (choice === '1') mode = 'DailyCheckIn';
     else if (choice === '2') mode = 'Box Open';
@@ -927,20 +786,16 @@ async function main() {
     else if (choice === '4') {
       await runAllTasks();
       console.log(`${colors.green('Completed all tasks!')}`);
-    } else if (choice === '5') {
-      const count = parseInt(readline.question(colors.yellow('Enter the number of wallets to create: ')));
-      const referrerAddress = readline.question(colors.yellow('Enter referrerAddress: '));
-      await createWallets(count, referrerAddress);
-      console.log(`${colors.green('Completed wallet creation!')}`);
-    } else if (choice === '6') {
+    }
+    else if (choice === '5') {
       console.log(`${colors.green('Exiting...')}`);
       break;
     } else {
-      console.log(`${colors.red('Invalid choice! Please select 1, 2, 3, 4, 5, or 6.')}`);
+      console.log(`${colors.red('Invalid choice! Please select 1, 2, 3, 4, or 5.')}`);
       continue;
     }
 
-    if (choice !== '4' && choice !== '5' && choice !== '6') {
+    if (choice !== '4' && choice !== '5') {
       await processWallets(mode);
       console.log(`\n${colors.green(`Completed ${mode}!`)}`);
     }
@@ -954,7 +809,7 @@ main();
 
 process.on('SIGINT', () => {
   console.log(`\n\n${colors.yellow('Saving data...')}`);
-  fs.writeFileSync(walletFile, JSON.stringify(walletData, null, 2));
+  fs.writeFileSync(walletFile, JSON.stringify(JSON.parse(fs.readFileSync(walletFile, 'utf-8')), null, 2));
   fs.writeFileSync(openFile, JSON.stringify(openData, null, 2));
   console.log(`${colors.green('Saved wallet_sol.json and open.json')}`);
   process.exit(0);
