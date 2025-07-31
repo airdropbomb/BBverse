@@ -36,7 +36,7 @@ if (fs.existsSync(walletFile)) {
 }
 
 const referrerAddress = readline.question(colors.yellow('Enter referrerAddress: '));
-const count = parseInt(readline.question(colors.yellow('Enter number of wallets to create: ')));
+const count = parseInt(readline.question(colors.yellow('Enter the number of wallets to create: ')));
 
 const sleep = ms => new Promise(res => setTimeout(res, ms));
 
@@ -63,14 +63,14 @@ function parseProxy(proxyString) {
 }
 
 (async () => {
-  console.log(colors.blue(`🔍 Loaded ${proxies.length} Proxy and ${userAgents.length} user agents`));
-  console.log(colors.yellow(`⚠️  Each wallet will use a unique proxy to avoid IP bans`));
+  console.log(colors.blue(`🔍 Loaded ${proxies.length} proxies and ${userAgents.length} user agents`));
+  console.log(colors.yellow(`⚠️ Each wallet will use a separate proxy to avoid IP bans`));
   
   for (let i = 0; i < count; i++) {
-    console.log(colors.cyan(`\n[${i + 1}/${count}] === CREATE NEW WALLET ===`));
+    console.log(colors.cyan(`\n[${i + 1}/${count}] === CREATING NEW WALLET ===`));
 
     if (i >= proxies.length) {
-      console.log(colors.red(`[!] Out of proxies! Only ${proxies.length} proxies for ${count} wallets
+      console.log(colors.red(`[!] Out of proxies! Only ${proxies.length} proxies available for ${count} wallets`));
       break;
     }
 
@@ -87,8 +87,8 @@ function parseProxy(proxyString) {
     const publicKey = keypair.publicKey.toBase58();
     const privateKey = bs58.encode(keypair.secretKey);
 
-    console.log(`🌐 Đang tạo ví: ${publicKey}`);
-    console.log(`↳ Proxy riêng #${i + 1}: ${proxyString}`);
+    console.log(`🌐 Creating wallet: ${publicKey}`);
+    console.log(`↳ Dedicated proxy #${i + 1}: ${proxyString}`);
     console.log(`↳ Device ID: ${deviceId}`);
 
     try {
@@ -125,7 +125,7 @@ function parseProxy(proxyString) {
       const vcrcsCookie = cookies.find(c => c.name === '_vcrcs');
       
       if (!vcrcsCookie) {
-        throw new Error("Không tìm thấy cookie _vcrcs!");
+        throw new Error("Could not find _vcrcs cookie!");
       }
 
       const response = await page.evaluate(async ({ publicKey, referrerAddress, deviceId, cookieValue }) => {
@@ -174,7 +174,7 @@ function parseProxy(proxyString) {
         fs.writeFileSync(walletFile, JSON.stringify(walletData, null, 2));
         console.log(colors.green(`[+] Success! Wallet: ${publicKey}`));
       } else {
-        console.log(colors.red(`[!] Lỗi từ server: ${response.status}`));
+        console.log(colors.red(`[!] Server error: ${response.status}`));
         console.log(colors.gray('Response:', JSON.stringify(response.body, null, 2)));
       }
 
@@ -184,14 +184,14 @@ function parseProxy(proxyString) {
         global.gc();
       }
     } catch (err) {
-      console.log(colors.red(`[!] Error when creating wallet: ${err.message || err}`));
+      console.log(colors.red(`[!] Error creating wallet: ${err.message || err}`));
     }
 
     const delayTime = Math.random() * 7000 + 5000;
-    console.log(colors.gray(`⏳ Nghỉ ${Math.round(delayTime/1000)}s...`));
+    console.log(colors.gray(`⏳ Waiting ${Math.round(delayTime/1000)}s...`));
     await sleep(delayTime);
   }
 
-  console.log(colors.green('\n✅ Done. Wallets saved to wallet_sol.json'));
-  console.log(colors.cyan(`📊 The total has been created: ${walletData.length} ví`));
+  console.log(colors.green('\n✅ Completed. Wallets saved to wallet_sol.json'));
+  console.log(colors.cyan(`📊 Total created: ${walletData.length} wallets`));
 })();
