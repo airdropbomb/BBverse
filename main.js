@@ -35,8 +35,8 @@ if (fs.existsSync(walletFile)) {
   walletData = Array.isArray(data) ? data : [];
 }
 
-const referrerAddress = readline.question(colors.yellow('Nhập referrerAddress: '));
-const count = parseInt(readline.question(colors.yellow('Nhập số lượng ví muốn tạo: ')));
+const referrerAddress = readline.question(colors.yellow('Enter referrerAddress: '));
+const count = parseInt(readline.question(colors.yellow('Enter number of wallets to create: ')));
 
 const sleep = ms => new Promise(res => setTimeout(res, ms));
 
@@ -63,14 +63,14 @@ function parseProxy(proxyString) {
 }
 
 (async () => {
-  console.log(colors.blue(`🔍 Đã load ${proxies.length} proxy và ${userAgents.length} user agents`));
-  console.log(colors.yellow(`⚠️  Mỗi ví sẽ sử dụng 1 proxy riêng biệt để tránh bị ban IP`));
+  console.log(colors.blue(`🔍 Loaded ${proxies.length} Proxy and ${userAgents.length} user agents`));
+  console.log(colors.yellow(`⚠️  Each wallet will use a unique proxy to avoid IP bans`));
   
   for (let i = 0; i < count; i++) {
-    console.log(colors.cyan(`\n[${i + 1}/${count}] === TẠO VÍ MỚI ===`));
+    console.log(colors.cyan(`\n[${i + 1}/${count}] === CREATE NEW WALLET ===`));
 
     if (i >= proxies.length) {
-      console.log(colors.red(`[!] Hết proxy! Chỉ có ${proxies.length} proxy cho ${count} ví`));
+      console.log(colors.red(`[!] Out of proxies! Only ${proxies.length} proxies for ${count} wallets
       break;
     }
 
@@ -172,7 +172,7 @@ function parseProxy(proxyString) {
         };
         walletData.push(wallet);
         fs.writeFileSync(walletFile, JSON.stringify(walletData, null, 2));
-        console.log(colors.green(`[+] Thành công! Ví: ${publicKey}`));
+        console.log(colors.green(`[+] Success! Wallet: ${publicKey}`));
       } else {
         console.log(colors.red(`[!] Lỗi từ server: ${response.status}`));
         console.log(colors.gray('Response:', JSON.stringify(response.body, null, 2)));
@@ -184,7 +184,7 @@ function parseProxy(proxyString) {
         global.gc();
       }
     } catch (err) {
-      console.log(colors.red(`[!] Lỗi khi tạo ví: ${err.message || err}`));
+      console.log(colors.red(`[!] Error when creating wallet: ${err.message || err}`));
     }
 
     const delayTime = Math.random() * 7000 + 5000;
@@ -192,6 +192,6 @@ function parseProxy(proxyString) {
     await sleep(delayTime);
   }
 
-  console.log(colors.green('\n✅ Hoàn tất. Ví đã lưu vào wallet_sol.json'));
-  console.log(colors.cyan(`📊 Tổng cộng đã tạo: ${walletData.length} ví`));
+  console.log(colors.green('\n✅ Done. Wallets saved to wallet_sol.json'));
+  console.log(colors.cyan(`📊 The total has been created: ${walletData.length} ví`));
 })();
